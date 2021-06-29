@@ -193,6 +193,7 @@ class LanguageModel(abc.ABC):
 
         return head_text, tail_text, tokens[:head_num_tokens], tokens[head_num_tokens:]
 
+    @profile
     def predict_batch_lm(self,
                          x: transformers.tokenization_utils_base.BatchEncoding,
                          device: torch.device,
