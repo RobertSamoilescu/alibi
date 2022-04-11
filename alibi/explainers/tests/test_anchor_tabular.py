@@ -12,6 +12,7 @@ from alibi.exceptions import AlibiPredictorCallException, AlibiPredictorReturnTy
 from alibi.explainers import AnchorTabular, DistributedAnchorTabular
 from alibi.explainers.tests.utils import predict_fcn
 from alibi.utils.distributed import RAY_INSTALLED
+from alibi.utils.discretizer import QuartilesDiscretizer, DecilesDiscretizer, LinspaceDiscretizer, EntropyDiscretizer
 
 
 # TODO: Test DistributedAnchorBaseBeam separately
@@ -339,3 +340,52 @@ def test_anchor_tabular_fails_bad_predictor_return_type():
     """
     with pytest.raises(AlibiPredictorReturnTypeError):
         explainer = AnchorTabular(bad_predictor, feature_names=['f1', 'f2', 'f3'])  # noqa: F841
+
+
+def test_quartiles_discretizer(adult_data):
+    numerical_features = [i for i in range(len(adult_data['metadata']['feature_names']))
+                          if i not in adult_data['metadata']['category_map']]
+
+    discretizer = QuartilesDiscretizer(data=adult_data['X_train'],
+                                       numerical_features=numerical_features,
+                                       feature_names=adult_data['metadata']['feature_names'])
+    disc_data = discretizer.discretize(adult_data['X_train'])
+    assert np.all(np.max(disc_data[:, numerical_features], axis=0) < 4)
+
+
+def test_deciles_discretizer(adult_data):
+    numerical_features = [i for i in range(len(adult_data['metadata']['feature_names']))
+                          if i not in adult_data['metadata']['category_map']]
+
+    discretizer = DecilesDiscretizer(data=adult_data['X_train'],
+                                     numerical_features=numerical_features,
+                                     feature_names=adult_data['metadata']['feature_names'])
+    disc_data = discretizer.discretize(adult_data['X_train'])
+    assert np.all(np.max(disc_data[:, numerical_features], axis=0) < 10)
+
+
+@pytest.mark.parametrize('nums', [5, 10, 15, 20])
+def test_linspace_discretizer(adult_data, nums):
+    numerical_features = [i for i in range(len(adult_data['metadata']['feature_names']))
+                          if i not in adult_data['metadata']['category_map']]
+
+    discretizer = LinspaceDiscretizer(data=adult_data['X_train'],
+                                      numerical_features=numerical_features,
+                                      feature_names=adult_data['metadata']['feature_names'],
+                                      nums=nums)
+    disc_data = discretizer.discretize(adult_data['X_train'])
+    assert np.all(np.max(disc_data[:, numerical_features], axis=0) < nums)
+
+
+@pytest.mark.parametrize('max_depth', [2, 3, 4])
+def test_entropy_discretizer(adult_data, max_depth):
+    numerical_features = [i for i in range(len(adult_data['metadata']['feature_names']))
+                          if i not in adult_data['metadata']['category_map']]
+
+    discretizer = EntropyDiscretizer(data=adult_data['X_train'],
+                                     labels=adult_data['y_train'],
+                                     numerical_features=numerical_features,
+                                     feature_names=adult_data['metadata']['feature_names'],
+                                     max_depth=max_depth)
+    disc_data = discretizer.discretize(adult_data['X_train'])
+    assert np.all(np.max(disc_data[:, numerical_features], axis=0) < 2**max_depth)
