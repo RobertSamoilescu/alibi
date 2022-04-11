@@ -11,7 +11,7 @@ from alibi.api.defaults import DEFAULT_DATA_ANCHOR, DEFAULT_META_ANCHOR
 from alibi.api.interfaces import Explainer, Explanation, FitMixin
 from alibi.exceptions import (AlibiPredictorCallException,
                               AlibiPredictorReturnTypeError)
-from alibi.utils.discretizer import Discretizer
+from alibi.utils.discretizer import Discretizer, QuartilesDiscretizer
 from alibi.utils.distributed import RAY_INSTALLED
 from alibi.utils.mapping import ohe_to_ord, ord_to_ohe
 from alibi.utils.wrappers import ArgmaxTransformer
@@ -28,16 +28,13 @@ class TabularSampler:
     # Probably related to: https://github.com/sphinx-doc/sphinx/issues/7427
     instance_label: int  #: The label of the instance to be explained.
 
-    def __init__(self, predictor: Callable, disc_perc: Tuple[Union[int, float], ...], numerical_features: List[int],
-                 categorical_features: List[int], feature_names: list, feature_values: dict, n_covered_ex: int = 10,
-                 seed: Optional[int] = None) -> None:
+    def __init__(self, predictor: Callable, numerical_features: List[int], categorical_features: List[int],
+                 feature_names: list, feature_values: dict, n_covered_ex: int = 10, seed: Optional[int] = None) -> None:
         """
         Parameters
         ----------
         predictor
             A callable that takes a tensor of `N` data points as inputs and returns `N` outputs.
-        disc_perc
-            Percentiles used for numerical feature discretisation.
         numerical_features
             Numerical features column IDs.
         categorical_features
@@ -59,7 +56,6 @@ class TabularSampler:
         self.n_covered_ex = n_covered_ex
 
         self.numerical_features = numerical_features
-        self.disc_perc = disc_perc
         self.feature_names = feature_names
         self.categorical_features = categorical_features
         self.feature_values = feature_values
@@ -69,7 +65,10 @@ class TabularSampler:
         self.ord_lookup = {}  # type: Dict[int, set]
         self.enc2feat_idx = {}  # type: Dict[int, int]
 
-    def deferred_init(self, train_data: Union[np.ndarray, Any], d_train_data: Union[np.ndarray, Any]) -> Any:
+    def deferred_init(self,
+                      train_data: Union[np.ndarray, Any],
+                      d_train_data: Union[np.ndarray, Any],
+                      disc: Discretizer) -> Any:
         """
         Initialise the tabular sampler object with data, discretizer, feature statistics and
         build an index from feature values and bins to database rows for each feature.
@@ -80,6 +79,8 @@ class TabularSampler:
             Data from which samples are drawn. Can be a `numpy` array or a `ray` future.
         d_train_data:
             Discretized version for training data. Can be a `numpy` array or a `ray` future.
+        disc
+            Discretizer to be used to discretize numerical features.
 
         Returns
         -------
@@ -87,7 +88,7 @@ class TabularSampler:
         """
 
         self._set_data(train_data, d_train_data)
-        self._set_discretizer(self.disc_perc)
+        self.disc = disc
         self._set_numerical_feats_stats()
         self.val2idx = self._get_data_index()
 
@@ -101,18 +102,6 @@ class TabularSampler:
         self.train_data = train_data
         self.d_train_data = d_train_data
         self.n_records = train_data.shape[0]
-
-    def _set_discretizer(self, disc_perc: Tuple[Union[int, float], ...]) -> None:
-        """
-        Fit a discretizer to training data. Used to discretize returned samples.
-        """
-
-        self.disc = Discretizer(
-            self.train_data,
-            self.numerical_features,
-            self.feature_names,
-            percentiles=disc_perc,
-        )
 
     def _set_numerical_feats_stats(self) -> None:
         """
@@ -747,7 +736,7 @@ class AnchorTabular(Explainer, FitMixin):
 
     def fit(self,  # type: ignore[override]
             train_data: np.ndarray,
-            disc_perc: Tuple[Union[int, float], ...] = (25, 50, 75),
+            disc: Optional[Discretizer] = None,
             **kwargs) -> "AnchorTabular":
         """
         Fit discretizer to train data to bin numerical features into ordered bins and compute statistics for
@@ -758,32 +747,29 @@ class AnchorTabular(Explainer, FitMixin):
         ----------
         train_data
             Representative sample from the training data.
-        disc_perc
-            List with percentiles (`int`) used for discretization.
+        disc
+            Discretizer to be used to discretize numerical features.
         """
-
         # transform one-hot encodings to labels if ohe == True
         train_data = ohe_to_ord(X_ohe=train_data, cat_vars_ohe=self.cat_vars_ohe)[0] if self.ohe else train_data
 
         # discretization of continuous features
-        disc = Discretizer(train_data, self.numerical_features, self.feature_names, percentiles=disc_perc)
+        if disc is None:
+            disc = QuartilesDiscretizer(data=train_data,
+                                        numerical_features=self.numerical_features,
+                                        feature_names=self.feature_names)
         d_train_data = disc.discretize(train_data)
         self.feature_values.update(disc.feature_intervals)
 
         sampler = TabularSampler(
             self._predictor,  # type: ignore[arg-type] # TODO: fix me, ignored as can be None due to saving.py
-            disc_perc,
             self.numerical_features,
             self.categorical_features,
             self.feature_names,
             self.feature_values,
             seed=self.seed,
         )
-        self.samplers = [sampler.deferred_init(train_data, d_train_data)]
-
-        # update metadata
-        self.meta['params'].update(disc_perc=disc_perc)
-
+        self.samplers = [sampler.deferred_init(train_data=train_data, d_train_data=d_train_data, disc=disc)]
         return self
 
     def _build_sampling_lookups(self, X: np.ndarray) -> None:
