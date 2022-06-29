@@ -749,7 +749,7 @@ class KernelShap(Explainer, FitMixin):
 
         # perform grouping if requested by the user
         self.background_data = self._get_data(background_data, group_names, groups, weights, **kwargs)
-        explainer_args = (self.predictor, self.background_data)
+        explainer_args = (self._predictor, self.background_data)
         explainer_kwargs = {'link': self.link}  # type: Dict[str, Union[str, int, None]]
         # distribute computation
         if self.distribute:
@@ -1088,7 +1088,7 @@ class TreeShap(Explainer, FitMixin):
         else:
             logger.warning(f"Unrecognised model output {model_output}. Defaulting to model_output='raw'")
             self.model_output = 'raw'
-        self.predictor = predictor
+        self._predictor = predictor
         self.feature_names = feature_names if feature_names else []
         self.categorical_names = categorical_names if categorical_names else {}
         self.task = task
@@ -1162,7 +1162,7 @@ class TreeShap(Explainer, FitMixin):
         perturbation = 'interventional' if background_data is not None else 'tree_path_dependent'
         self.background_data = background_data
         self._explainer = shap.TreeExplainer(
-            self.predictor,
+            self._predictor,
             data=self.background_data,
             model_output=self.model_output,
             feature_perturbation=perturbation,
@@ -1354,7 +1354,7 @@ class TreeShap(Explainer, FitMixin):
 
         import xgboost
 
-        dexplain = xgboost.DMatrix(X, feature_names=self.predictor.feature_names)
+        dexplain = xgboost.DMatrix(X, feature_names=self._predictor.feature_names)
         shap_output = self._explainer.shap_interaction_values(dexplain, tree_limit=self.tree_limit)
 
         return shap_output
@@ -1597,6 +1597,22 @@ class TreeShap(Explainer, FitMixin):
                 "the encoding dimensions were not passed!"
             )
             self.summarise_result = False
+
+    @property
+    def predictor(self):
+        return self._predictor
+
+    @predictor.setter
+    def predictor(self, predictor: Any):
+        self._predictor = predictor
+        if predictor is not None:
+            self._explainer.model = shap.explainers._tree.TreeEnsemble(model=predictor,
+                                                                       data=self._explainer.data,
+                                                                       data_missing=self._explainer.data_missing,
+                                                                       model_output=self._explainer.model_output)
+            self._explainer.expected_value = self._explainer.model.predict(self._explainer.data).mean(0)
+        else:
+            self._explainer.model = None
 
     def reset_predictor(self, predictor: Any) -> None:
         """
