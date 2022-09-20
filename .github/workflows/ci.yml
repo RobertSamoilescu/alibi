@@ -20,12 +20,6 @@ on:
     - cron: '0 0 * * *'
   # Trigger the workflow on manual dispatch
   workflow_dispatch:
-    inputs:
-      tmate_enabled:
-        type: boolean
-        description: 'Enable tmate debugging?'
-        required: false
-        default: false
 
 jobs:
   build:
@@ -38,7 +32,7 @@ jobs:
         python-version: [ '3.7', '3.8', '3.9', '3.10.6' ]
         include: # Run macos and windows tests on only one python version
           - os: windows-latest 
-            python-version:  '3.9'  # PyTorch doesn't yet have 3.10 support on Windows (https://pytorch.org/get-started/locally/#windows-python) 
+            python-version:  '3.9.12'  # PyTorch doesn't yet have 3.10 support on Windows (https://pytorch.org/get-started/locally/#windows-python)
           - os: macos-latest 
             python-version:  '3.10.6'
 
@@ -64,12 +58,6 @@ jobs:
           python -m spacy download en_core_web_md
           python -m pip freeze
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.tmate_enabled }}
-        with:
-          limit-access-to-actor: true
-
       - name: Lint with flake8
         run: |
           flake8 alibi
@@ -86,7 +74,7 @@ jobs:
       - name: Upload coverage to Codecov
         if: ${{ success() }}
         run: |
-          codecov -F ${{ matrix.os }}-${{ matrix.python-version }}
+          codecov
 
       - name: Build Python package
         run: |
