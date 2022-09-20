@@ -20,6 +20,12 @@ on:
     - cron: '0 0 * * *'
   # Trigger the workflow on manual dispatch
   workflow_dispatch:
+    inputs:
+      tmate_enabled:
+        type: boolean
+        description: 'Enable tmate debugging?'
+        required: false
+        default: false
 
 jobs:
   build:
@@ -58,6 +64,12 @@ jobs:
           python -m spacy download en_core_web_md
           python -m pip freeze
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.tmate_enabled }}
+        with:
+          limit-access-to-actor: true
+
       - name: Lint with flake8
         run: |
           flake8 alibi
@@ -68,13 +80,12 @@ jobs:
 
       - name: Test with pytest
         run: |
-          pytest -m tf1 alibi
-          pytest -m "not tf1" alibi
+          pytest -m "not tf1" alibi/explainers/tests/test_anchor_text.py
 
       - name: Upload coverage to Codecov
         if: ${{ success() }}
         run: |
-          codecov
+          codecov -F ${{ matrix.os }}-${{ matrix.python-version }}
 
       - name: Build Python package
         run: |
