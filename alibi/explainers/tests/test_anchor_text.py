@@ -282,17 +282,25 @@ def test_lm_stopwords_punctuation(lang_model, punctuation, stopwords, filling,
     Checks if the sampling procedure affect the stopwords and the
     punctuation when is not supposed to.
     """
+    print("Line 0.")
+
     # unpack test data
     X_test = movie_sentiment_data['X_test']
+    print("Line 1.")
 
     # select 10 samples
     n = 10
+    print("Line 2.")
     np.random.seed(0)
+    print("Line 3.")
     idx = np.random.choice(len(X_test), size=n, replace=False)
+    print("Line 4.")
 
     # update test dat
     X_test = [X_test[i] for i in idx]
+    print("Line 5.")
     assert len(X_test) == n
+    print("Line 6.")
 
     # define perturb opts
     perturb_opts = {
@@ -301,41 +309,56 @@ def test_lm_stopwords_punctuation(lang_model, punctuation, stopwords, filling,
         "stopwords": stopwords,
         "frac_mask_templates": 0.1,
     }
+    print("Line 7.")
 
     # initialize sampler
     sampler = LanguageModelSampler(model=lang_model, perturb_opts=perturb_opts)
+    print("Line 8.")
 
     for i in range(n):
         text = X_test[i]
+        print(f"Line 9. Iteration i={i}.")
 
         # process test
         processed = nlp(text)
+        print(f"Line 10. Iteration i={i}.")
         words = [w.text.lower() for w in processed]
+        print(f"Line 11. Iteration i={i}.")
         words = {w: words.count(w) for w in words}
+        print(f"Line 12. Iteration i={i}.")
 
         # set sampler perturb opts
         sampler.set_text(text)
+        print(f"Line 13. Iteration i={i}.")
 
         # get masks samples
         raw, data = sampler.create_mask((), num_samples=10, filling=filling, **perturb_opts)
+        print(f"Line 14. Iteration i={i}.")
 
         for j in range(len(raw)):
             mask_counts = str(raw[j]).count(lang_model.mask)
+            print(f"Line 15. Iteration i={i}, j={j}.")
             raw[j] = str(raw[j]).replace(lang_model.mask, '', mask_counts)
+            print(f"Line 16. Iteration i={i}, j={j}.")
 
             preprocessed = nlp(str(raw[j]))
+            print(f"Line 17. Iteration i={i}, j={j}.")
             words_masks = [w.text.lower() for w in preprocessed]
+            print(f"Line 18. Iteration i={i}, j={j}.")
             words_masks = {w: words_masks.count(w) for w in words_masks}
+            print(f"Line 19. Iteration i={i}, j={j}.")
 
             # check if the stopwords were perturbed and they were not supposed to
             for sw in stopwords:
                 if sw in words:
                     assert words[sw] == words_masks[sw]
+            print(f"Line 20. Iteration i={i}, j={j}.")
 
             # check if the punctuation was perturbed and it was not supposed to
             for p in punctuation:
                 if (p in text) and (p != '\''):  # ' is a tricky one as in words don't for which don' is a token
                     assert text.count(p) == str(raw[j]).count(p)
+            print(f"Line 21. Iteration i={i}, j={j}.")
 
 
 @pytest.mark.parametrize('lang_model', ['DistilbertBaseUncased', 'BertBaseUncased', 'RobertaBase'], indirect=True)
