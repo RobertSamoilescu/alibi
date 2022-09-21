@@ -46,6 +46,7 @@ if __name__ == '__main__':
               'pandas>=0.23.3, <2.0.0',
               'scikit-learn>=0.22.0, <2.0.0',
               'spacy[lookups]>=2.0.0, <4.0.0',
+              'thinc>=8.1.0, <8.1.1',
               'scikit-image>=0.17.2, <0.20',  # introduced `start_label` argument for `slic`
               'requests>=2.21.0, <3.0.0',
               'Pillow>=5.4.1, <10.0',
