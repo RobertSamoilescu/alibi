@@ -13,6 +13,7 @@ from alibi.explainers.partial_dependence import PartialDependence, TreePartialDe
 from alibi.explainers.pd_variance import PartialDependenceVariance, plot_pd_variance
 from alibi.explainers.permutation_importance import PermutationImportance, plot_permutation_importance
 from alibi.explainers.similarity.grad import GradientSimilarity
+from alibi.explainers.similarity.shap import ShapSimilarity
 
 
 DistributedAnchorTabular = import_optional(
@@ -61,5 +62,6 @@ __all__ = [
     "IntegratedGradients",
     "KernelShap",
     "TreeShap",
-    "GradientSimilarity"
+    "GradientSimilarity",
+    "ShapSimilarity"
 ]

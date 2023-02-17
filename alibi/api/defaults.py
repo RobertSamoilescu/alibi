@@ -381,3 +381,27 @@ DEFAULT_DATA_PERMUTATION_IMPORTANCE: dict = {
 """
 Default PermutationImportance data.
 """
+
+
+DEFAULT_META_SHAP_SIM = {
+    "name": None,
+    "type": ["blackbox"],
+    "explanations": ["local"],
+    "params": {},
+    "version": None
+}
+"""
+Default `ShapSimilarity` metadata.
+"""
+
+DEFAULT_DATA_SHAP_SIM = {
+    "X": None,
+    "y": None,
+    "scores": None,
+    "ordered_indices": None,
+    "most_similar": None,
+    "least_similar": None
+}
+"""
+Default `ShapSimilarity` data.
+"""
