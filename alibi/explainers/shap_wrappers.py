@@ -962,7 +962,7 @@ class KernelShap(Explainer, FitMixin):
         Parameters
         ----------
         summarise_result, cat_vars_start_idx, cat_vars_enc_dim
-            See :py:meth:`alibi.exapliners.KernelShap.shap_wrapper.explain` documentation.
+            See :py:meth:`alibi.explainers.KernelShap.shap_wrapper.explain` documentation.
         """
 
         self.summarise_result = summarise_result
@@ -992,6 +992,7 @@ class KernelShap(Explainer, FitMixin):
             New prediction function.
         """
         self.predictor = predictor
+        self._explainer.model = shap_utils.convert_to_model(self.predictor)
         # TODO: check if we need to reinitialize self._explainer (potentially not, as it should hold a reference
         #  to self.predictor) however, the shap.KernelExplainer may utilize the Callable to set some attributes
         # TODO: check if we need to do more for the distributed case
@@ -1628,3 +1629,7 @@ class TreeShap(Explainer, FitMixin):
         """
         # TODO: check what else should be done (e.g. validate dtypes again?)
         self.predictor = predictor
+        self._explainer.model = shap.explainers._tree.TreeEnsemble(predictor,
+                                                                   self._explainer.data,
+                                                                   self._explainer.data_missing,
+                                                                   self._explainer.model_output)
